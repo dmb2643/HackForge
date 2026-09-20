@@ -14,8 +14,33 @@ services:
     build:
       context: ./backend
     container_name: hackforge_backend
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
     expose:
       - "8080"
+
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: hackforge_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./out/postgres:/var/lib/postgresql
+
+  migrator:
+    container_name: hackforge_migrator
+    image: migrate/migrate
+    depends_on:
+      - postgres
+    volumes:
+      - ./migrations:/migrations
+
 
   nginx:
     image: nginx:alpine
