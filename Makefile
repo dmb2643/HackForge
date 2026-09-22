@@ -28,3 +28,6 @@ migrate:
 clear-db:
 	@docker compose down && \
 		rm -r out/postgres
+
+test:
+	go -C backend test ./...

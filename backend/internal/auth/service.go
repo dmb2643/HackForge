@@ -3,17 +3,23 @@ package auth
 import (
 	"context"
 	"fmt"
-	"log/slog"
+	"uuid"
 
 	"github.com/dmb2643/HackForge/internal/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct {
-	repo *UserRepository
+type AuthRepository interface {
+	CreateUser(ctx context.Context, email, name, passwordHash string) (uuid.UUID, error)
+	CheckUserExists(ctx context.Context, email string) (bool, error)
+	GetUserByEmail(ctx context.Context, email string) (user.User, error)
 }
 
-func NewAuthService(repo *UserRepository) *AuthService {
+type AuthService struct {
+	repo AuthRepository
+}
+
+func NewAuthService(repo AuthRepository) *AuthService {
 	return &AuthService{repo: repo}
 }
 
@@ -43,8 +49,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (Regist
 
 	exists, err := s.repo.CheckUserExists(ctx, req.Email)
 	if err != nil {
-		slog.Error("failed to check user exists", "error", err)
-		return RegisterResponse{}, err
+		return RegisterResponse{}, fmt.Errorf("check user exists: %w", err)
 	}
 	if exists {
 		return RegisterResponse{}, ErrUserAllreadyExists
@@ -52,8 +57,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (Regist
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		slog.Error("failed to hash password", "error", err)
-		return RegisterResponse{}, fmt.Errorf("error to hash password %w", err)
+		return RegisterResponse{}, fmt.Errorf("hash password: %w", err)
 	}
 
 	u := user.User{
@@ -64,8 +68,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (Regist
 
 	id, err := s.repo.CreateUser(ctx, u.Email, u.Name, u.PasswordHash)
 	if err != nil {
-		slog.Error("failed to create user", "error", err)
-		return RegisterResponse{}, err
+		return RegisterResponse{}, fmt.Errorf("create user: %w", err)
 	}
 
 	resp := RegisterResponse{
@@ -74,4 +77,34 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (Regist
 	}
 
 	return resp, nil
+}
+
+func (s *AuthService) Login(ctx context.Context, req LoginRequest) (LogionResponse, error) {
+	if req.Email == "" {
+		return LogionResponse{}, fmt.Errorf("email is required")
+	}
+	if req.Password == "" {
+		return LogionResponse{}, fmt.Errorf("password is required")
+	}
+	if len(req.Password) < 8 {
+		return LogionResponse{}, fmt.Errorf("password must be at least 8 characters")
+	}
+	if len(req.Email) < 3 {
+		return LogionResponse{}, fmt.Errorf("email must be at least 3 characters")
+	}
+
+	u, err := s.repo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		return LogionResponse{}, fmt.Errorf("get user by email: %w", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(req.Password)); err != nil {
+		return LogionResponse{}, fmt.Errorf(ErrInvalidPassword.Error(), err)
+	}
+
+	return LogionResponse{
+		ID:    u.ID,
+		Name:  u.Name,
+		Email: u.Email,
+	}, nil
 }
