@@ -18,3 +18,9 @@ type UpdateProfileRequest struct {
 	Skills         []string `json:"skills"`
 	LookingForTeam bool     `json:"lookingForTeam"`
 }
+
+type ParticipantsFilter struct {
+	Role    string `json:"role"`
+	Skill   string `json:"skill"`
+	Looking *bool  `json:"looking"`
+}
