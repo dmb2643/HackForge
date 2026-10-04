@@ -37,8 +37,8 @@ func (s *profileService) UpdateProfile(ctx context.Context, userId string, req U
 	return updatedProfile, nil
 }
 
-func (s *profileService) GetParticipants(ctx context.Context) ([]profileModel, error) {
-	participants, err := s.repo.GetParticipants(ctx)
+func (s *profileService) GetParticipants(ctx context.Context, filter ParticipantsFilter) ([]profileModel, error) {
+	participants, err := s.repo.GetParticipants(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("get participants: %w", err)
 	}

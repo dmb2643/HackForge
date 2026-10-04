@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/dmb2643/HackForge/internal/middleware"
 )
@@ -55,7 +56,28 @@ func (h *profileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *profileHandler) GetParticipants(w http.ResponseWriter, r *http.Request) {
-	participants, err := h.service.GetParticipants(r.Context())
+	query := r.URL.Query()
+
+	var participantsFilter ParticipantsFilter
+
+	if query.Has("role") {
+		participantsFilter.Role = query.Get("role")
+	}
+
+	if query.Has("skill") {
+		participantsFilter.Skill = query.Get("skill")
+	}
+
+	if query.Has("looking") {
+		looking, err := strconv.ParseBool(query.Get("looking"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		participantsFilter.Looking = &looking
+	}
+
+	participants, err := h.service.GetParticipants(r.Context(), participantsFilter)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		slog.Error("failed to get participants", "error:", err.Error())

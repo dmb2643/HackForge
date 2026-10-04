@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -64,42 +65,80 @@ func (r *profileRepository) UpdateProfile(ctx context.Context, userId string, re
 	return updatedProfile, nil
 }
 
-func (r *profileRepository) GetParticipants(ctx context.Context) ([]profileModel, error) {
-	q := `
-		select
-			id,
-			name,
-			role,
-			skills,
-			looking_for_team
-		from users
+func (r *profileRepository) GetParticipants(ctx context.Context, filter ParticipantsFilter) ([]profileModel, error) {
+	query := `
+    SELECT
+        id,
+        name,
+        role,
+        skills,
+        looking_for_team
+    FROM users
 	`
 
-	rows, err := r.db.Query(ctx, q)
-	if err != nil {
-		return nil, err
+	conditions := []string{}
+	args := []any{}
+
+	if filter.Role != "" {
+		args = append(args, filter.Role)
+
+		conditions = append(
+			conditions,
+			fmt.Sprintf("role = $%d", len(args)),
+		)
 	}
 
+	if filter.Looking != nil {
+		args = append(args, *filter.Looking)
+
+		conditions = append(
+			conditions,
+			fmt.Sprintf("looking_for_team = $%d", len(args)),
+		)
+	}
+
+	if filter.Skill != "" {
+		args = append(args, filter.Skill)
+
+		conditions = append(
+			conditions,
+			fmt.Sprintf("skills @> ARRAY[$%d]", len(args)),
+		)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + conditions[0]
+		for _, cond := range conditions[1:] {
+			query += " AND " + cond
+		}
+	}
+
+	var profiles []profileModel
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query participants %w", err)
+	}
 	defer rows.Close()
 
-	var participants []profileModel
 	for rows.Next() {
-		var p profileModel
+		var profile profileModel
+
 		if err := rows.Scan(
-			&p.ID,
-			&p.Name,
-			&p.Role,
-			&p.Skills,
-			&p.LookingForTeam,
+			&profile.ID,
+			&profile.Name,
+			&profile.Role,
+			&profile.Skills,
+			&profile.LookingForTeam,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan participants: %w", err)
 		}
-		participants = append(participants, p)
+
+		profiles = append(profiles, profile)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("iterate participants: %w", err)
 	}
 
-	return participants, nil
+	return profiles, nil
 }
