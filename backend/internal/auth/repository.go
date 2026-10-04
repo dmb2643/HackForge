@@ -5,14 +5,14 @@ import (
 	"uuid"
 
 	"github.com/dmb2643/HackForge/internal/user"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PostgresAuthRepository struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewRepository(db *pgx.Conn) *PostgresAuthRepository {
+func NewRepository(db *pgxpool.Pool) *PostgresAuthRepository {
 	return &PostgresAuthRepository{
 		db: db,
 	}

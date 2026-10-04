@@ -31,6 +31,6 @@ func TestEmpty(t *testing.T) {
 		Name:     "",
 		Password: "",
 	}); err == nil {
-		t.Errorf("expected error, have %s", err.Error())
+		t.Errorf("expected error, have %s", err)
 	}
 }
